@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gains Tracker - Gráfica Interactiva</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <!-- Librería Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #09090b;
+            --card-bg: #141417;
+            --border-color: #27272a;
+            --neon-green: #22c55e;
+            --neon-red: #ef4444;
+            --text-main: #fafafa;
+            --text-muted: #71717a;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+            -webkit-user-select: none;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 390px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .text-center { text-align: center; }
+
+        /* CONTROLES CALENDARIO */
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding: 0 4px;
+        }
+
+        .month-title, .section-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-btn {
+            background: #1c1c21;
+            border: 1px solid var(--border-color);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .weekdays-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            text-align: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        .grid-calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+        }
+
+        .day-box {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 10px;
+            background-color: #1c1c21;
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+
+        .day-box.empty { background: transparent; border: none; }
+        .day-box.today { border-color: #ffffff; color: #ffffff; box-shadow: 0 0 8px rgba(255,255,255,0.2); }
+        .day-box.complete { background-color: var(--neon-green) !important; border-color: var(--neon-green) !important; color: #000000 !important; }
+        .day-box.failed { background-color: rgba(239, 68, 68, 0.15) !important; border-color: var(--neon-red) !important; color: var(--neon-red) !important; }
+
+        .btn-check {
+            width: 100%; background-color: #ffffff; color: #000000; border: none; padding: 16px; border-radius: 14px; font-size: 1rem; font-weight: 700; margin-top: 16px; cursor: pointer;
+        }
+        .btn-check.active { background-color: var(--neon-green); color: #000000; }
+
+        /* SECCIÓN PESO NUEVA DISPOSICIÓN VERTICAL */
+        .weight-input-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 12px;
+            margin-bottom: 12px;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            box-sizing: border-box;
+            background: #1c1c21;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: #fff;
+            padding: 14px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            text-align: center;
+            outline: none;
+        }
+
+        .btn-add-weight {
+            width: 100%;
+            background-color: #fff;
+            color: #000;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 220px;
+            margin-top: 8px;
+        }
+
+        .hint-text {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: center;
+            margin-top: 8px;
+        }
+
+        .backup-text {
+            font-size: 0.7rem;
+            color: #3f3f46;
+            text-align: center;
+            margin-top: 16px;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+
+    <!-- CALENDARIO -->
+    <div class="card text-center">
+        <div class="calendar-header">
+            <button class="nav-btn" onclick="cambiarMes(-1)">◀</button>
+            <div class="month-title" id="month-display">MAYO 2026</div>
+            <button class="nav-btn" onclick="cambiarMes(1)">▶</button>
+        </div>
+        
+        <div class="weekdays-grid">
+            <div>L</div><div>M</div><div>X</div><div>J</div><div>V</div><div>S</div><div>D</div>
+        </div>
+        
+        <div class="grid-calendar" id="calendar-grid"></div>
+
+        <button id="main-button" class="btn-check" onclick="marcarDiaHoy()">
+            Marcar día de hoy
+        </button>
+    </div>
+
+    <!-- PESO Y GRÁFICA -->
+    <div class="card">
+        <div class="section-title">Control de Peso</div>
+        
+        <div class="weight-input-wrapper">
+            <input type="number" id="weight-input" step="0.1" placeholder="Introduce tu peso (Ej: 72.1)" inputmode="decimal">
+            <button class="btn-add-weight" onclick="addWeight()">Grabar peso</button>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="weightChart"></canvas>
+        </div>
+        
+        <div class="hint-text">💡 Toca un punto de la gráfica para ver la fecha o editar/borrar ese peso.</div>
+        <div class="backup-text" onclick="gestionarCopiaSeguridad()">⚙️ Copia de seguridad (Guardar / Importar datos)</div>
+    </div>
+
+</div>
+
+<script>
+    let fechaVisualizada = new Date(); 
+    let historialTomas = JSON.parse(localStorage.getItem('gains_multi_calendar')) || {};
+    let listaPesos = JSON.parse(localStorage.getItem('gains_weight_list')) || [];
+    let miGrafica = null;
+
+    const mesesNombres = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+    function getClaveFecha(ano, mes, dia) {
+        return `${ano}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    }
+
+    // --- CALENDARIO ---
+    function renderCalendario() {
+        const grid = document.getElementById('calendar-grid');
+        grid.innerHTML = '';
+        const ano = fechaVisualizada.getFullYear();
+        const mes = fechaVisualizada.getMonth();
+
+        document.getElementById('month-display').innerText = `${mesesNombres[mes]} ${ano}`;
+
+        const dReal = new Date();
+        const esMesActualReal = (dReal.getFullYear() === ano && dReal.getMonth() === mes);
+
+        const primerDia = new Date(ano, mes, 1);
+        let espaciosVacios = primerDia.getDay();
+        espaciosVacios = espaciosVacios === 0 ? 6 : espaciosVacios - 1;
+
+        const totalDias = new Date(ano, mes + 1, 0).getDate();
+
+        for (let e = 0; e < espaciosVacios; e++) {
+            const emptyBox = document.createElement('div');
+            emptyBox.className = 'day-box empty';
+            grid.appendChild(emptyBox);
+        }
+
+        for (let dia = 1; dia <= totalDias; dia++) {
+            const box = document.createElement('div');
+            box.className = 'day-box';
+            box.innerText = dia;
+            const clave = getClaveFecha(ano, mes, dia);
+
+            if (esMesActualReal && dReal.getDate() === dia) {
+                box.classList.add('today');
+                const boton = document.getElementById('main-button');
+                if (historialTomas[clave]) {
+                    boton.innerText = "¡Completado hoy! ✓";
+                    boton.classList.add('active');
+                } else {
+                    boton.innerText = "Marcar día de hoy";
+                    boton.classList.remove('active');
+                }
+            }
+
+            if (historialTomas[clave]) {
+                box.classList.add('complete');
+            } else {
+                const fechaCaja = new Date(ano, mes, dia);
+                const hoyMediodia = new Date(dReal.getFullYear(), dReal.getMonth(), dReal.getDate());
+                if (fechaCaja < hoyMediodia) box.classList.add('failed');
+            }
+            grid.appendChild(box);
+        }
+    }
+
+    function marcarDiaHoy() {
+        const dReal = new Date();
+        const claveHoy = getClaveFecha(dReal.getFullYear(), dReal.getMonth(), dReal.getDate());
+        historialTomas[claveHoy] = !historialTomas[claveHoy];
+        localStorage.setItem('gains_multi_calendar', JSON.stringify(historialTomas));
+        fechaVisualizada = new Date();
+        renderCalendario();
+    }
+
+    function cambiarMes(direccion) {
+        fechaVisualizada.setMonth(fechaVisualizada.getMonth() + direccion);
+        renderCalendario();
+    }
+
+    // --- LÓGICA DE PESO Y GRÁFICA INTERACTIVA ---
+    function addWeight() {
+        const input = document.getElementById('weight-input');
+        const valor = parseFloat(input.value.replace(',', '.'));
+        
+        if (!valor || valor <= 0) return;
+
+        const d = new Date();
+        const fechaStr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+        listaPesos.push({ id: Date.now(), timestamp: d.getTime(), fecha: fechaStr, peso: valor });
+        listaPesos.sort((a, b) => a.timestamp - b.timestamp);
+
+        localStorage.setItem('gains_weight_list', JSON.stringify(listaPesos));
+        input.value = '';
+        
+        updateChartUI();
+    }
+
+    function updateChartUI() {
+        const ctx = document.getElementById('weightChart').getContext('2d');
+        const labels = listaPesos.map(w => w.fecha);
+        const data = listaPesos.map(w => w.peso);
+
+        if (miGrafica) {
+            miGrafica.destroy();
+        }
+
+        miGrafica = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    borderColor: '#22c55e',
+                    backgroundColor: 'rgba(34, 197, 94, 0.08)',
+                    borderWidth: 3,
+                    tension: 0.2,
+                    fill: true,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: '#22c55e',
+                    pointRadius: 5,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1c1c21',
+                        titleColor: '#fff',
+                        bodyColor: '#22c55e',
+                        bodyFont: { weight: 'bold' },
+                        borderColor: '#27272a',
+                        borderWidth: 1,
+                        displayColors: false
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: '#71717a' } },
+                    y: { grid: { color: '#27272a' }, ticks: { color: '#71717a' } }
+                },
+                onClick: (_, elementos) => {
+                    if (elementos.length > 0) {
+                        const indice = elementos[0].index;
+                        const registro = listaPesos[indice];
+                        
+                        const nuevoPesoStr = prompt(
+                            `Registro del día (${registro.fecha})\nPeso actual: ${registro.peso} kg\n\nIntroduce el nuevo peso para modificarlo, o pon '0' para eliminarlo por completo:`
+                        );
+                        
+                        if (nuevoPesoStr !== null) {
+                            const nuevoPeso = parseFloat(nuevoPesoStr.replace(',', '.'));
+                            
+                            if (nuevoPeso === 0) {
+                                listaPesos.splice(indice, 1);
+                            } else if (nuevoPeso > 0) {
+                                listaPesos[indice].peso = nuevoPeso;
+                            } else {
+                                alert("Entrada no válida.");
+                                return;
+                            }
+                            
+                            localStorage.setItem('gains_weight_list', JSON.stringify(listaPesos));
+                            updateChartUI();
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // --- SISTEMA RESILIENTE DE COPIA DE SEGURIDAD ---
+    function gestionarCopiaSeguridad() {
+        const opcion = prompt("¿Qué deseas hacer?\nEscribe '1' para exportar tu código de seguridad.\nEscribe '2' para restaurar datos antiguos.");
+        
+        if (opcion === '1') {
+            const exportData = {
+                tomas: historialTomas,
+                pesos: listaPesos
+            };
+            const codigoString = btoa(JSON.stringify(exportData));
+            prompt("Este es tu código de seguridad. Cópialo entero y guárdalo en Notas:", codigoString);
+        } else if (opcion === '2') {
+            const codigoImport = prompt("Pega aquí el código de seguridad que guardaste:");
+            if (codigoImport) {
+                try {
+                    const decodedData = JSON.parse(atob(codigoImport));
+                    if (decodedData.tomas && decodedData.pesos) {
+                        historialTomas = decodedData.tomas;
+                        listaPesos = decodedData.pesos;
+                        localStorage.setItem('gains_multi_calendar', JSON.stringify(historialTomas));
+                        localStorage.setItem('gains_weight_list', JSON.stringify(listaPesos));
+                        renderCalendario();
+                        updateChartUI();
+                        alert("¡Datos restaurados con éxito! 🔥");
+                    } else {
+                        alert("El código no parece válido.");
+                    }
+                } catch(err) {
+                    alert("Error al procesar el código.");
+                }
+            }
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        renderCalendario();
+        updateChartUI();
+    });
+</script>
+
+</body>
+</html>
